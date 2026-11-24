@@ -3,7 +3,7 @@ const PNG = 'data:image/png;base64,'
 const MAX_ITEMS = 60
 
 const pad = (n) => String(n).padStart(2, '0')
-const isoLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+export const isoLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 const plusDays = (n) => {
   const d = new Date()
   d.setDate(d.getDate() + n)
@@ -19,6 +19,7 @@ const defaults = () => ({
   date: isoLocal(new Date()),
   due: plusDays(14),
   paid: false,
+  paidDate: '',
   logo: null,
   company: { name: '', tagline: '', address: '', contact: '' },
   client: { name: '', address: '', phone: '' },
@@ -50,6 +51,7 @@ export function hydrate(raw) {
     date: str(raw.date, 10),
     due: str(raw.due, 10),
     paid: raw.paid === true,
+    paidDate: str(raw.paidDate, 10),
     logo: typeof raw.logo === 'string' && raw.logo.startsWith(PNG) ? raw.logo : null,
     company: group('company', ['name', 'tagline', 'address', 'contact']),
     client: group('client', ['name', 'address', 'phone']),

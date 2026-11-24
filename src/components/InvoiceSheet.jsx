@@ -10,13 +10,22 @@ export default function InvoiceSheet({ inv }) {
 
   return (
     <article className="sheet" aria-label="Pratinjau invoice">
+      {inv.paid && (
+        <div className="stamp" role="img" aria-label={`Lunas ${fmtDate(inv.paidDate)}`.trim()}>
+          <span>Lunas</span>
+          {fmtDate(inv.paidDate) && <small>{fmtDate(inv.paidDate)}</small>}
+        </div>
+      )}
       <header className="sh-head">
         <div className="brand">
-          {inv.logo && <img src={inv.logo} alt="Logo" />}
-          <div>
-            <b>{company.name || 'Nama usaha'}</b>
-            {company.tagline && <span>{company.tagline}</span>}
-          </div>
+          {inv.logo ? (
+            <img src={inv.logo} alt={company.name ? `Logo ${company.name}` : 'Logo'} />
+          ) : (
+            <>
+              <b className="sh-name">{company.name || 'Nama usaha'}</b>
+              {company.tagline && <span>{company.tagline}</span>}
+            </>
+          )}
         </div>
         <div className="sh-title">
           <h1>Invoice</h1>
@@ -32,7 +41,6 @@ export default function InvoiceSheet({ inv }) {
               </>
             )}
           </dl>
-          {inv.paid && <p className="paid">Lunas</p>}
         </div>
       </header>
 

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import InvoiceSheet from './components/InvoiceSheet.jsx'
 import { fmtDate, fmtNum, idr, totals } from './lib/format.js'
 import { processLogo } from './lib/logo.js'
-import { blankInvoice, loadDraft, loadInvoices, hydrate, newItem, saveDraft, saveInvoices } from './lib/store.js'
+import SendDialog from './components/SendDialog.jsx'
+import { blankInvoice, hydrate, isoLocal, loadDraft, loadInvoices, newItem, saveDraft, saveInvoices } from './lib/store.js'
 
 const MAX_ITEMS = 60
 const SHEET_PX = 794 // 210 mm pada 96 dpi
@@ -38,6 +39,7 @@ export default function App() {
   const [note, setNote] = useState('')
   const [logoError, setLogoError] = useState('')
   const [hard, setHard] = useState(false)
+  const [sending, setSending] = useState(false)
   const logoFile = useRef(null)
   const fitRef = useFit()
 
@@ -82,15 +84,21 @@ export default function App() {
     if (logoFile.current) applyLogo(logoFile.current, v)
   }
 
+  function persist(item) {
+    const exists = list.some((i) => i.id === item.id)
+    const next = exists ? list.map((i) => (i.id === item.id ? item : i)) : [item, ...list]
+    if (!saveInvoices(next)) return false
+    setList(next)
+    return true
+  }
   function save() {
-    const exists = list.some((i) => i.id === inv.id)
-    const next = exists ? list.map((i) => (i.id === inv.id ? inv : i)) : [inv, ...list]
-    if (saveInvoices(next)) {
-      setList(next)
-      setNote('Nota tersimpan')
-    } else {
-      setNote('Gagal menyimpan: penyimpanan browser penuh')
-    }
+    setNote(persist(inv) ? 'Nota tersimpan' : 'Gagal menyimpan: penyimpanan browser penuh')
+  }
+  // Dipanggil setelah PDF selesai dikirim: tanggal lunas = tanggal kirim.
+  function markSent(date) {
+    const next = { ...inv, paid: true, paidDate: date }
+    setInv(next)
+    setNote(persist(next) ? `Terkirim, ditandai lunas ${fmtDate(date)}` : 'Terkirim, tetapi gagal menyimpan penanda lunas')
   }
   function create() {
     setInv(blankInvoice(list))
@@ -106,9 +114,11 @@ export default function App() {
     if (saveInvoices(next)) setList(next)
   }
   function togglePaid(i) {
-    const next = list.map((x) => (x.id === i.id ? { ...x, paid: !x.paid } : x))
+    const paid = !i.paid
+    const paidDate = paid ? i.paidDate || isoLocal(new Date()) : ''
+    const next = list.map((x) => (x.id === i.id ? { ...x, paid, paidDate } : x))
     if (saveInvoices(next)) setList(next)
-    if (inv.id === i.id) set('paid', !i.paid)
+    if (inv.id === i.id) setInv((p) => ({ ...p, paid, paidDate }))
   }
 
   return (
@@ -129,6 +139,7 @@ export default function App() {
           {view === 'edit' && (
             <>
               <button className="btn" onClick={save}>Simpan</button>
+              <button className="btn" onClick={() => setSending(true)}>Kirim WA</button>
               <button className="btn solid" onClick={() => window.print()}>Cetak</button>
             </>
           )}
@@ -154,6 +165,7 @@ export default function App() {
                       Hapus logo
                     </button>
                   )}
+                  {inv.logo && <p className="hint">Saat logo dipakai, nama usaha dan keterangan singkat tidak dicetak.</p>}
                   {logoError && <p className="error" role="alert">{logoError}</p>}
                 </div>
               </div>
@@ -185,8 +197,20 @@ export default function App() {
                 </Field>
               </div>
               <label className="check">
-                <input type="checkbox" checked={inv.paid} onChange={(e) => set('paid', e.target.checked)} /> Sudah lunas
+                <input
+                  type="checkbox"
+                  checked={inv.paid}
+                  onChange={(e) =>
+                    setInv((p) => ({ ...p, paid: e.target.checked, paidDate: e.target.checked ? p.paidDate || isoLocal(new Date()) : '' }))
+                  }
+                />{' '}
+                Sudah lunas
               </label>
+              {inv.paid && (
+                <Field label="Tanggal lunas">
+                  <input type="date" value={inv.paidDate} onChange={(e) => set('paidDate', e.target.value)} />
+                </Field>
+              )}
             </fieldset>
 
             <fieldset>
@@ -313,6 +337,7 @@ export default function App() {
           )}
         </main>
       )}
+      {sending && <SendDialog inv={inv} onClose={() => setSending(false)} onSent={markSent} />}
     </div>
   )
 }
